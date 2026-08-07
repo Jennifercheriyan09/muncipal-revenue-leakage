@@ -1,0 +1,45 @@
+[project]
+name = "municipal-revenue-leakage-backend"
+version = "0.2.0"
+description = "FastAPI backend for Municipal Revenue Leakage Intelligence System"
+requires-python = ">=3.12"
+dependencies = [
+  "alembic>=1.13.3",
+  "asyncpg>=0.30.0",
+  "bcrypt==4.0.1",
+  "celery[redis]>=5.4.0",
+  "email-validator>=2.2.0",
+  "fastapi>=0.115.5",
+  "geoalchemy2>=0.15.2",
+  "httpx>=0.27.2",
+  "groq>=0.12.0",
+  "langgraph>=0.2.56",
+  "passlib[bcrypt]>=1.7.4",
+  "pgvector>=0.3.0",
+  "pydantic-settings>=2.6.1",
+  "python-jose[cryptography]>=3.3.0",
+  "python-multipart>=0.0.17",
+  "qdrant-client>=1.12.1",
+  "redis>=5.2.0",
+  "shapely>=2.0.6",
+  "slowapi>=0.1.9",
+  "SQLAlchemy>=2.0.36",
+  "uvicorn[standard]>=0.32.1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.3.3", "pytest-asyncio>=0.24.0", "ruff>=0.7.4"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+# B008: FastAPI's Depends()/Query() in argument defaults is the intended pattern.
+# BLE001: fallback code (LLM, health checks) deliberately catches broadly.
+# UP046: PaginatedResponse(BaseModel, Generic[T]) is valid and clear.
+ignore = ["B008", "BLE001", "UP046"]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+

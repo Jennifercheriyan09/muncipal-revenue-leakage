@@ -1,0 +1,1 @@
+from app.models import analysis, investigation, municipal, property, user, ward  # noqa: F401

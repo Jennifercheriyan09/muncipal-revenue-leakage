@@ -1,0 +1,23 @@
+name: Backend
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install backend
+        working-directory: backend
+        run: pip install ".[dev]"
+      - name: Compile
+        working-directory: backend
+        run: python -m compileall app
+      - name: Ruff
+        working-directory: backend
+        run: ruff check app
