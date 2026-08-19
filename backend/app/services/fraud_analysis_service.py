@@ -1,3 +1,5 @@
+import logging
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.state import RevenueLeakageState
@@ -6,6 +8,8 @@ from app.models.analysis import AnalysisRun
 from app.repositories.analysis_repository import create_analysis_run
 from app.repositories.property_repository import update_property_risk
 from app.services import embedding_service
+
+logger = logging.getLogger(__name__)
 
 
 async def run_fraud_analysis(
@@ -47,8 +51,8 @@ async def run_fraud_analysis(
         candidates = await embedding_service.find_similar(property_id, prop_data)
         if candidates:
             prop_data["duplicate_candidates"] = candidates
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Semantic duplicate search failed for property %s: %s", property_id, exc)
 
     # Run the remaining agents via LangGraph (excludes property_validation which already ran).
     graph = get_revenue_leakage_graph()
@@ -89,8 +93,8 @@ async def run_fraud_analysis(
     try:
         await embedding_service.ensure_collection()
         await embedding_service.upsert_property(property_id, state["property_data"])
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Re-embedding property %s failed: %s", property_id, exc)
 
     # Dispatch notifications (decoupled municipal adapter)
     from app.services.notification_service import dispatch_notifications
