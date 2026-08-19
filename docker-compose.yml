@@ -3,6 +3,7 @@ services:
     build:
       context: ./backend
     container_name: mrlis-final-api
+    restart: on-failure
     env_file:
       - path: .env
         required: false
@@ -65,7 +66,8 @@ services:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-municipal} -d ${POSTGRES_DB:-municipal_revenue}"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 30s
     deploy:
       resources:
         limits:
@@ -114,18 +116,9 @@ services:
           memory: 1g
           cpus: "1.0"
 
-  ollama:
-    image: ollama/ollama:latest
-    container_name: mrlis-final-ollama
-    ports:
-      - "11436:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    deploy:
-      resources:
-        limits:
-          memory: 8g
-          cpus: "4.0"
+  # ollama service disabled — remove this comment and re-enable if you need local LLM.
+  # To use it: run `docker compose up --build` after a stable internet connection is available,
+  # then pull models: docker exec mrlis-final-ollama ollama pull llama3.2
 
   nginx:
     image: nginx:1.27-alpine
@@ -149,4 +142,3 @@ volumes:
   postgres_data:
   redis_data:
   qdrant_data:
-  ollama_data:
