@@ -35,7 +35,7 @@ async def create_property_record(
 
 @router.get("/properties", response_model=PaginatedResponse[PropertyRead])
 async def list_property_records(
-    limit: int = Query(default=20, ge=1, le=100),
+    limit: int = Query(default=20, ge=1, le=1000),
     offset: int = Query(default=0, ge=0),
     ward_id: int | None = Query(default=None),
     risk_level: str | None = Query(default=None),

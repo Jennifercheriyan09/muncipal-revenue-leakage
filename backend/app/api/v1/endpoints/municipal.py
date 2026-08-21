@@ -10,6 +10,8 @@ from app.repositories.municipal_repository import (
     create_payment,
     create_trade_license,
     create_utility_record,
+    get_payments_by_property,
+    get_tax_records_by_property,
     upsert_tax_record,
 )
 from app.schemas.municipal import (
@@ -28,6 +30,32 @@ from app.schemas.municipal import (
 )
 
 router = APIRouter()
+
+
+@router.get(
+    "/municipal/properties/{property_id}/tax-records",
+    response_model=list[TaxRecordRead],
+)
+async def list_property_tax_records(
+    property_id: int,
+    db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(get_current_user),
+) -> list[TaxRecordRead]:
+    records = await get_tax_records_by_property(db, property_id)
+    return [TaxRecordRead.model_validate(r) for r in records]
+
+
+@router.get(
+    "/municipal/properties/{property_id}/payments",
+    response_model=list[PaymentRead],
+)
+async def list_property_payments(
+    property_id: int,
+    db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(get_current_user),
+) -> list[PaymentRead]:
+    payments = await get_payments_by_property(db, property_id)
+    return [PaymentRead.model_validate(p) for p in payments]
 
 
 @router.post(

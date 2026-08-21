@@ -178,6 +178,35 @@ export async function listProperties(params: {
   return request(`/properties?${q}`)
 }
 
+export interface TaxRecord {
+  id: number
+  property_id: number
+  assessment_year: number
+  assessed_value: number
+  tax_demand: number
+  tax_paid: number
+  arrears_amount: number
+  last_payment_date: string | null
+}
+
+export interface PaymentRecord {
+  id: number
+  property_id: number
+  amount: number
+  payment_date: string
+  gateway_reference: string | null
+  payment_mode: string | null
+  is_manual_adjustment: boolean
+}
+
+export async function getPropertyTaxRecords(propertyId: number): Promise<TaxRecord[]> {
+  return request(`/municipal/properties/${propertyId}/tax-records`)
+}
+
+export async function getPropertyPayments(propertyId: number): Promise<PaymentRecord[]> {
+  return request(`/municipal/properties/${propertyId}/payments`)
+}
+
 export async function getProperty(id: number): Promise<Property> {
   return request(`/properties/${id}`)
 }

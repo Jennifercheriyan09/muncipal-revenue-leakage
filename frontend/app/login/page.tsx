@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { login as apiLogin } from '@/lib/api'
 
 const ACCENT = '#1d4ed8'
 
@@ -13,25 +14,27 @@ export default function LoginPage() {
   const [error, setError]       = useState('')
   const [showPw, setShowPw]     = useState(false)
 
-  function handleLogin(e: React.FormEvent) {
+  async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
     setError('')
-    if (!email || !password) { setError('Please enter both email and password.'); return }
+
+    if (!email || !password) {
+      setError('Please enter both email and password.')
+      return
+    }
+
     setLoading(true)
-    setTimeout(() => {
-      if (
-        (email === 'admin@mrlis.gov.in'   && password === 'officer123') ||
-        (email === 'officer@mrlis.gov.in' && password === 'officer123')
-      ) {
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('mrlis_token', 'demo-token-123')
-        }
-        router.push('/dashboard')
-      } else {
-        setError('Invalid credentials. Use the demo accounts below.')
-        setLoading(false)
-      }
-    }, 800)
+
+    try {
+      const res = await apiLogin(email, password)
+      localStorage.setItem('mrlis_token', res.access_token)
+      router.push('/dashboard')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Login failed.'
+      setError(message || 'Invalid email or password.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (

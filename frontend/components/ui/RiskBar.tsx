@@ -8,6 +8,7 @@ const RISK_COLORS: Record<string, string> = {
 
 interface RiskBarProps {
   score: number | null | undefined
+  level?: string | null
   showLabel?: boolean
   height?: number
 }
@@ -19,9 +20,9 @@ function riskColor(score: number) {
   return RISK_COLORS.Low
 }
 
-export default function RiskBar({ score, showLabel = false, height = 5 }: RiskBarProps) {
+export default function RiskBar({ score, level, showLabel = false, height = 5 }: RiskBarProps) {
   const val = score ?? 0
-  const color = riskColor(val)
+  const color = level ? (RISK_COLORS[level] || riskColor(val)) : riskColor(val)
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 80 }}>
       <div className="risk-bar-track" style={{ flex: 1, height }}>

@@ -5,10 +5,18 @@ import Link from 'next/link'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import RiskBadge from '@/components/ui/RiskBadge'
 import Pagination from '@/components/ui/Pagination'
-import { PROPERTIES as MOCK_PROPERTIES, WARDS, formatCurrency } from '@/lib/mockData'
-import { listProperties } from '@/lib/api'
+import { PROPERTIES as MOCK_PROPERTIES, formatCurrency } from '@/lib/mockData'
+import { listProperties, listWards, Ward } from '@/lib/api'
+import { mr, riskLevelMr } from '@/lib/mr'
 
-const RISK_TABS = ['all', 'Critical', 'High', 'Medium', 'Low']
+const RISK_TABS = ['all', 'Critical', 'High', 'Medium', 'Low'] as const
+const RISK_TAB_LABEL: Record<string, string> = {
+  all: mr.allProperties,
+  Critical: 'Critical',
+  High: 'High',
+  Medium: 'Medium',
+  Low: 'Low',
+}
 const PAGE_SIZE = 10
 
 // Unique avatar color per owner — deterministic
@@ -28,28 +36,39 @@ function MiniSparkline({ up = true, color = '#15803d' }: { up?: boolean; color?:
 }
 
 export default function PropertiesPage() {
-  const [propertiesList, setPropertiesList] = useState<any[]>(MOCK_PROPERTIES)
+  const [propertiesList, setPropertiesList] = useState<any[]>([])
+  const [wardsList, setWardsList] = useState<Ward[]>([])
+  const [loading, setLoading] = useState(true)
   const [riskTab, setRiskTab] = useState('all')
   const [usage, setUsage]     = useState('')
   const [wardId, setWardId]   = useState('')
   const [exempt, setExempt]   = useState('')
   const [search, setSearch]   = useState('')
   const [page, setPage]       = useState(0)
-  const [sortBy, setSortBy]   = useState<'risk_score' | 'estimated_revenue_impact' | 'owner_name'>('risk_score')
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
+  const [sortBy, setSortBy]   = useState<'risk_score' | 'estimated_revenue_impact' | 'owner_name'>('owner_name')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [selected, setSelected] = useState<Set<number>>(new Set())
 
   useEffect(() => {
-    listProperties()
-      .then(res => {
-        if (res && res.items && res.items.length > 0) {
-          setPropertiesList(res.items)
-        }
-      })
-      .catch(() => {
-        // Fallback to mock properties
-      })
+    Promise.all([
+      listWards().catch(() => [] as Ward[]),
+      listProperties({ limit: 1000 }).catch(() => ({ items: [], total: 0, limit: 0, offset: 0 })),
+    ]).then(([wards, res]) => {
+      setWardsList(wards)
+      const wardMap = Object.fromEntries(wards.map(w => [w.id, w.name]))
+      const items = (res.items?.length ? res.items : MOCK_PROPERTIES).map((p: any) => ({
+        ...p,
+        ward_name: p.ward_name || (p.ward_id ? wardMap[p.ward_id] : null) || '—',
+      }))
+      setPropertiesList(items)
+    }).finally(() => setLoading(false))
   }, [])
+
+  const usageOptions = useMemo(() => {
+    const set = new Set<string>()
+    propertiesList.forEach(p => { if (p.usage_type) set.add(p.usage_type) })
+    return Array.from(set).sort()
+  }, [propertiesList])
 
   const filtered = useMemo(() => {
     let list = [...propertiesList]
@@ -94,9 +113,9 @@ export default function PropertiesPage() {
 
   return (
     <DashboardLayout
-      title="Properties"
-      subtitle="All registered properties with AI-powered risk scoring and fraud detection."
-      breadcrumb="Dashboard"
+      title={mr.properties}
+      subtitle="Ahmednagar Municipal Corporation — property records"
+      breadcrumb={mr.dashboard}
       actions={
         <button className="btn btn-primary" style={{ fontSize: 12, marginLeft: 8 }}>
           <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -121,7 +140,7 @@ export default function PropertiesPage() {
                   marginBottom: -1, transition: 'all 0.14s', fontFamily: 'inherit',
                   display: 'flex', alignItems: 'center', gap: 6,
                 }}>
-                  {t === 'all' ? 'All Properties' : t}
+                  {RISK_TAB_LABEL[t] ?? t}
                   <span style={{ fontSize: 11, fontWeight: 600, padding: '1px 7px', borderRadius: 9999, background: active ? '#eff6ff' : '#f1f3f6', color: active ? '#1d4ed8' : '#8b92a5' }}>{count}</span>
                 </button>
               )
@@ -133,23 +152,23 @@ export default function PropertiesPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 16px', borderBottom: '1px solid #f0f2f6' }}>
           <div style={{ position: 'relative', flex: '1 1 200px', maxWidth: 280 }}>
             <svg style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: '#8b92a5' }} width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input className="input" style={{ paddingLeft: 28, width: '100%', fontSize: 12.5 }} placeholder="Search properties…" value={search} onChange={e => { setSearch(e.target.value); setPage(0) }}/>
+            <input className="input" style={{ paddingLeft: 28, width: '100%', fontSize: 12.5 }} placeholder={mr.searchProperties} value={search} onChange={e => { setSearch(e.target.value); setPage(0) }}/>
           </div>
           <select className="select" style={{ fontSize: 12.5 }} value={usage} onChange={e => { setUsage(e.target.value); setPage(0) }}>
-            <option value="">All Usage Types</option>
-            {['residential','commercial','industrial'].map(u => <option key={u} value={u}>{u.charAt(0).toUpperCase()+u.slice(1)}</option>)}
+            <option value="">{mr.allUsageTypes}</option>
+            {usageOptions.map(u => <option key={u} value={u}>{u}</option>)}
           </select>
           <select className="select" style={{ fontSize: 12.5 }} value={wardId} onChange={e => { setWardId(e.target.value); setPage(0) }}>
-            <option value="">All Wards</option>
-            {WARDS.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+            <option value="">{mr.allWards}</option>
+            {wardsList.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
           </select>
           <select className="select" style={{ fontSize: 12.5 }} value={exempt} onChange={e => { setExempt(e.target.value); setPage(0) }}>
-            <option value="">Exemption: All</option>
-            <option value="yes">Exempted</option>
-            <option value="no">Not Exempted</option>
+            <option value="">{mr.exemptionAll}</option>
+            <option value="yes">{mr.exempted}</option>
+            <option value="no">{mr.notExempted}</option>
           </select>
           {(search || usage || wardId || exempt) && (
-            <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => { setSearch(''); setUsage(''); setWardId(''); setExempt(''); setPage(0) }}>Clear</button>
+            <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => { setSearch(''); setUsage(''); setWardId(''); setExempt(''); setPage(0) }}>{mr.clear}</button>
           )}
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
             <button className="btn btn-secondary" style={{ fontSize: 12, gap: 5 }}>
@@ -173,25 +192,27 @@ export default function PropertiesPage() {
                   <input type="checkbox" style={{ width: 15, height: 15, accentColor: '#1d4ed8', cursor: 'pointer' }}/>
                 </th>
                 <th style={thStyle} onClick={() => toggleSort('owner_name')} className="sortable-th">
-                  <span style={{ display:'flex', alignItems:'center' }}>Property / Owner <SortIcon col="owner_name"/></span>
+                  <span style={{ display:'flex', alignItems:'center' }}>{mr.owner} / {mr.propertyUid} <SortIcon col="owner_name"/></span>
                 </th>
-                <th style={thStyle}>Address</th>
-                <th style={thStyle}>Ward</th>
-                <th style={thStyle}>Usage</th>
-                <th style={thStyle}>Area (Decl / GIS)</th>
+                <th style={thStyle}>{mr.address}</th>
+                <th style={thStyle}>{mr.ward}</th>
+                <th style={thStyle}>{mr.usage}</th>
+                <th style={thStyle}>{mr.area}</th>
                 <th style={thStyle} onClick={() => toggleSort('risk_score')}>
-                  <span style={{ display:'flex', alignItems:'center' }}>Risk Score <SortIcon col="risk_score"/></span>
+                  <span style={{ display:'flex', alignItems:'center' }}>{mr.riskScore} <SortIcon col="risk_score"/></span>
                 </th>
-                <th style={thStyle}>Risk</th>
+                <th style={thStyle}>{mr.risk}</th>
                 <th style={thStyle} onClick={() => toggleSort('estimated_revenue_impact')}>
-                  <span style={{ display:'flex', alignItems:'center' }}>Impact <SortIcon col="estimated_revenue_impact"/></span>
+                  <span style={{ display:'flex', alignItems:'center' }}>{mr.impact} <SortIcon col="estimated_revenue_impact"/></span>
                 </th>
                 <th style={thStyle}></th>
               </tr>
             </thead>
             <tbody>
               {paged.map((p, i) => {
-                const mismatch = Math.abs(p.gis_area_sq_m - p.declared_area_sq_m) / p.declared_area_sq_m > 0.2
+                const decl = p.declared_area_sq_m || 0
+                const gis = p.gis_area_sq_m || 0
+                const mismatch = decl > 0 && Math.abs(gis - decl) / decl > 0.2
                 const isSelected = selected.has(p.id)
                 const up = p.risk_score < 60
                 return (
@@ -230,9 +251,9 @@ export default function PropertiesPage() {
                     {/* Usage */}
                     <td style={{ padding: '14px 14px' }}>
                       <div>
-                        <span style={{ fontSize: 13, fontWeight: 500, color: '#141822', textTransform: 'capitalize' }}>{p.usage_type}</span>
-                        {p.usage_type !== p.declared_usage_type && (
-                          <div style={{ fontSize: 11, color: '#c2410c', marginTop: 2 }}>Decl: {p.declared_usage_type}</div>
+                        <span style={{ fontSize: 13, fontWeight: 500, color: '#141822' }}>{p.usage_type || '—'}</span>
+                        {p.declared_usage_type && p.usage_type !== p.declared_usage_type && (
+                          <div style={{ fontSize: 11, color: '#c2410c', marginTop: 2 }}>{mr.declaredUsage}: {p.declared_usage_type}</div>
                         )}
                       </div>
                     </td>
@@ -240,12 +261,12 @@ export default function PropertiesPage() {
                     {/* Area */}
                     <td style={{ padding: '14px 14px' }}>
                       <div style={{ fontSize: 13 }}>
-                        <span style={{ fontWeight: 500, color: '#141822' }}>{p.declared_area_sq_m}</span>
+                        <span style={{ fontWeight: 500, color: '#141822' }}>{decl || '—'}</span>
                         <span style={{ color: '#c5cad4', margin: '0 3px' }}>/</span>
-                        <span style={{ fontWeight: 600, color: mismatch ? '#b91c1c' : '#141822' }}>{p.gis_area_sq_m}</span>
-                        <span style={{ color: '#8b92a5', fontSize: 11 }}> m²</span>
+                        <span style={{ fontWeight: 600, color: mismatch ? '#b91c1c' : '#141822' }}>{gis || '—'}</span>
+                        <span style={{ color: '#8b92a5', fontSize: 11 }}> {mr.sqm}</span>
                       </div>
-                      {mismatch && <div style={{ fontSize: 10, fontWeight: 700, color: '#b91c1c', marginTop: 2, textTransform: 'uppercase', letterSpacing: '0.04em' }}>⚠ Mismatch</div>}
+                      {mismatch && <div style={{ fontSize: 10, fontWeight: 700, color: '#b91c1c', marginTop: 2 }}>{mr.mismatch}</div>}
                     </td>
 
                     {/* Risk score bar */}
